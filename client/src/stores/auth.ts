@@ -1,3 +1,4 @@
+// /client/src/stores/auth.ts
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import router from '../router'
@@ -9,9 +10,9 @@ interface User {
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem('token'),
-    username: '',
-    userId: '',
+    token: localStorage.getItem('token') || '',
+    userId: localStorage.getItem('userId') || '',
+    username: localStorage.getItem('username') || '',
     users: [] as User[],
   }),
   actions: {
@@ -22,8 +23,13 @@ export const useAuthStore = defineStore('auth', {
         this.token = res.data.token
         this.userId = res.data.id
         this.username = res.data.username
-        localStorage.setItem('token', this.token)
 
+        // Сохраняем в localStorage
+        localStorage.setItem('token', this.token)
+        localStorage.setItem('userId', this.userId)
+        localStorage.setItem('username', this.username)
+
+        // Применяем токен к axios
         axios.defaults.headers.common.Authorization = `Bearer ${this.token}`
 
         await router.push('/chat')
@@ -32,6 +38,7 @@ export const useAuthStore = defineStore('auth', {
         console.error(err)
       }
     },
+
     async register(username: string, password: string) {
       try {
         await axios.post('/api/auth/register', { username, password })
@@ -41,12 +48,19 @@ export const useAuthStore = defineStore('auth', {
         console.error(err)
       }
     },
+
     logout() {
       this.token = ''
-      this.username = ''
       this.userId = ''
+      this.username = ''
+
+      // Удаляем из localStorage
       localStorage.removeItem('token')
+      localStorage.removeItem('userId')
+      localStorage.removeItem('username')
+
       delete axios.defaults.headers.common.Authorization
+
       router.push('/login')
     },
   },

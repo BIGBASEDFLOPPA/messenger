@@ -1,3 +1,4 @@
+// === server/src/ws/socket.js ===
 const WebSocket = require('ws');
 const Message = require('../models/Message');
 
@@ -10,25 +11,44 @@ function setupWebSocket(server) {
         let userId = null;
 
         ws.on('message', async (msg) => {
-            const data = JSON.parse(msg);
+            try {
+                const data = JSON.parse(msg);
 
-            if (data.type === 'auth') {
-                userId = data.userId;
-                clients.set(userId, ws);
-            }
-
-            if (data.type === 'message') {
-                const { from, to, text } = data;
-                await Message.create({ from, to, text });
-                const recipient = clients.get(to);
-                if (recipient) {
-                    recipient.send(JSON.stringify({ from, text, type: 'message' }));
+                if (data.type === 'auth') {
+                    userId = data.userId;
+                    clients.set(userId, ws);
+                    console.log(`\n✅ Авторизован пользователь: ${userId}`);
+                    console.log('📡 Все подключённые клиенты:', Array.from(clients.keys()));
                 }
+
+                if (data.type === 'message') {
+                    const { to, text } = data;
+                    const from = userId;
+
+                    if (!from || !to || !text) {
+                        console.warn('📛 Некорректное сообщение:', data);
+                        return;
+                    }
+
+                    console.log(`✉️ Сообщение от ${from} -> ${to}: ${text}`);
+
+                    await Message.create({ from, to, text });
+
+                    const recipient = clients.get(to);
+                    if (recipient) {
+                        recipient.send(JSON.stringify({ from, text, type: 'message' }));
+                    }
+                }
+            } catch (error) {
+                console.warn('❌ Ошибка обработки сообщения:', error);
             }
         });
 
         ws.on('close', () => {
-            if (userId) clients.delete(userId);
+            if (userId) {
+                clients.delete(userId);
+                console.log(`🚪 Клиент ${userId} отключился`);
+            }
         });
     });
 }
