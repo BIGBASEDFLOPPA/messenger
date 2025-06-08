@@ -1,4 +1,3 @@
-// === server/src/ws/socket.js ===
 const WebSocket = require('ws');
 const Message = require('../models/Message');
 

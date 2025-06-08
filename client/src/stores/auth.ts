@@ -1,4 +1,3 @@
-// /client/src/stores/auth.ts
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import router from '../router'
@@ -24,12 +23,10 @@ export const useAuthStore = defineStore('auth', {
         this.userId = res.data.id
         this.username = res.data.username
 
-        // Сохраняем в localStorage
         localStorage.setItem('token', this.token)
         localStorage.setItem('userId', this.userId)
         localStorage.setItem('username', this.username)
 
-        // Применяем токен к axios
         axios.defaults.headers.common.Authorization = `Bearer ${this.token}`
 
         await router.push('/chat')
@@ -54,7 +51,6 @@ export const useAuthStore = defineStore('auth', {
       this.userId = ''
       this.username = ''
 
-      // Удаляем из localStorage
       localStorage.removeItem('token')
       localStorage.removeItem('userId')
       localStorage.removeItem('username')

@@ -57,7 +57,6 @@ onMounted(() => {
     const data = JSON.parse(event.data)
 
     if (data.type === 'message') {
-      // Добавляем сообщение только если оно от другого пользователя
       if (data.from !== auth.userId) {
         messages.value.push({
           from: data.from,
@@ -75,13 +74,12 @@ function sendMessage() {
 
   const message = {
     type: 'message',
-    to: '683a00d34e03b32604551089', // Временно жёстко, заменим позже
+    to: '683a00d34e03b32604551089', // Временно жёстко
     text: newMessage.value,
   }
 
   socket.send(JSON.stringify(message))
 
-  // Добавляем сообщение отправителю локально
   messages.value.push({
     from: auth.userId,
     text: newMessage.value,
