@@ -15,6 +15,15 @@ export const useAuthStore = defineStore('auth', {
     users: [] as User[],
   }),
   actions: {
+    async fetchUsers() {
+      try {
+        const res = await axios.get('/api/auth/users')
+        this.users = res.data
+      } catch (err) {
+        console.error('Ошибка получения пользователей', err)
+      }
+    },
+
     async login(username: string, password: string) {
       try {
         const res = await axios.post('/api/auth/login', { username, password })
@@ -29,6 +38,7 @@ export const useAuthStore = defineStore('auth', {
 
         axios.defaults.headers.common.Authorization = `Bearer ${this.token}`
 
+        await this.fetchUsers()
         await router.push('/chat')
       } catch (err) {
         alert('Неверные данные для входа')
@@ -50,6 +60,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = ''
       this.userId = ''
       this.username = ''
+      this.users = []
 
       localStorage.removeItem('token')
       localStorage.removeItem('userId')
@@ -58,15 +69,6 @@ export const useAuthStore = defineStore('auth', {
       delete axios.defaults.headers.common.Authorization
 
       router.push('/login')
-    },
-
-    async fetchUsers() {
-      try {
-        const res = await axios.get('/api/auth/users')
-        this.users = res.data.filter((u: User) => u._id !== this.userId)
-      } catch (err) {
-        console.error('Ошибка загрузки пользователей', err)
-      }
     },
   },
 })

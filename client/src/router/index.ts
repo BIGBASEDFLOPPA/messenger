@@ -1,17 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginPage from '../pages/LoginPage.vue'
-import RegisterPage from '../pages/RegisterPage.vue'
-import ChatPage from '../pages/ChatPage.vue'
 import { useAuthStore } from '../stores/auth'
 
 const routes = [
-  { path: '/login', component: LoginPage },
-  { path: '/register', component: RegisterPage },
-  {
-    path: '/chat',
-    component: ChatPage,
-    meta: { requiresAuth: true },
-  },
+  { path: '/login', component: () => import('../pages/AuthPage.vue'), meta: { guestOnly: true } },
+  { path:'/register',component:()=> import('../pages/AuthPage.vue'), meta: { guestOnly: true } },
+  { path: '/chat', component: () => import('../pages/ChatPage.vue'), meta: { requiresAuth: true } },
   { path: '/', redirect: '/chat' },
 ]
 
@@ -20,10 +13,15 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
+router.beforeEach((to, from, next) => {
   const auth = useAuthStore()
+
   if (to.meta.requiresAuth && !auth.token) {
-    return '/login'
+    next('/login')
+  } else if (to.meta.guestOnly && auth.token) {
+    next('/chat')
+  } else {
+    next()
   }
 })
 
