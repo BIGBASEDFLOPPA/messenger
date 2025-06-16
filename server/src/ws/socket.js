@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const Message = require('../models/Message');
 
-const clients = new Map(); // userId -> Set of WebSocket connections
+const clients = new Map();
 
 function setupWebSocket(server) {
     const wss = new WebSocket.Server({ server });
@@ -33,7 +33,7 @@ function setupWebSocket(server) {
                         return;
                     }
 
-                    console.log(`✉️ Сообщение от ${username} (${from}) -> ${to}: ${text}`);
+                    console.log(` Сообщение от ${username} (${from}) -> ${to}: ${text}`);
 
                     await Message.create({ from, to, text });
 
