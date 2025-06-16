@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const Message = require('../models/Message');
 
-const clients = new Map();
+const clients = new Map(); // userId -> Set of WebSocket connections
 
 function setupWebSocket(server) {
     const wss = new WebSocket.Server({ server });
@@ -15,38 +15,57 @@ function setupWebSocket(server) {
 
                 if (data.type === 'auth') {
                     userId = data.userId;
-                    clients.set(userId, ws);
-                    console.log(`\n✅ Авторизован пользователь: ${userId}`);
-                    console.log('📡 Все подключённые клиенты:', Array.from(clients.keys()));
+                    if (!clients.has(userId)) {
+                        clients.set(userId, new Set());
+                    }
+                    clients.get(userId).add(ws);
+
+                    console.log(`Авторизован пользователь: ${userId}`);
+                    console.log('Все подключённые клиенты:', Array.from(clients.keys()));
                 }
 
                 if (data.type === 'message') {
-                    const { to, text } = data;
+                    const { to, text, username } = data;
                     const from = userId;
 
                     if (!from || !to || !text) {
-                        console.warn('📛 Некорректное сообщение:', data);
+                        console.warn('Некорректное сообщение:', data);
                         return;
                     }
 
-                    console.log(`✉️ Сообщение от ${from} -> ${to}: ${text}`);
+                    console.log(`✉️ Сообщение от ${username} (${from}) -> ${to}: ${text}`);
 
                     await Message.create({ from, to, text });
 
-                    const recipient = clients.get(to);
-                    if (recipient) {
-                        recipient.send(JSON.stringify({ from, text, type: 'message' }));
+                    const recipients = clients.get(to);
+                    if (recipients) {
+                        recipients.forEach((clientWs) => {
+                            if (clientWs.readyState === WebSocket.OPEN) {
+                                clientWs.send(JSON.stringify({
+                                    type: 'message',
+                                    from,
+                                    username,
+                                    text,
+                                }));
+                            }
+                        });
                     }
                 }
             } catch (error) {
-                console.warn('❌ Ошибка обработки сообщения:', error);
+                console.warn('Ошибка обработки сообщения:', error);
             }
         });
 
         ws.on('close', () => {
             if (userId) {
-                clients.delete(userId);
-                console.log(`🚪 Клиент ${userId} отключился`);
+                const conns = clients.get(userId);
+                if (conns) {
+                    conns.delete(ws);
+                    if (conns.size === 0) {
+                        clients.delete(userId);
+                    }
+                }
+                console.log(`Клиент ${userId} отключился`);
             }
         });
     });

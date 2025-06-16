@@ -59,5 +59,14 @@ export const useAuthStore = defineStore('auth', {
 
       router.push('/login')
     },
+
+    async fetchUsers() {
+      try {
+        const res = await axios.get('/api/auth/users')
+        this.users = res.data.filter((u: User) => u._id !== this.userId)
+      } catch (err) {
+        console.error('Ошибка загрузки пользователей', err)
+      }
+    },
   },
 })

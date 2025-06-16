@@ -1,165 +1,87 @@
 <template>
-  <div class="chat-page">
-    <div class="chat-box">
-      <div class="messages" ref="messagesContainer">
-        <div
-          v-for="msg in messages"
-          :key="msg._id || msg.timestamp"
-          :class="['message', msg.from === auth.userId ? 'sent' : 'received']"
-        >
-          <span class="username">{{ msg.from === auth.userId ? 'Вы' : 'Друг' }}:</span>
-          <span class="text">{{ msg.text }}</span>
-        </div>
+  <div>
+    <h2>Чат</h2>
+
+    <label for="select-user">Кому отправить:</label>
+    <select id="select-user" v-model="selectedUserId">
+      <option disabled value="">Выберите пользователя</option>
+      <option v-for="user in authStore.users" :key="user._id" :value="user._id">
+        {{ user.username }}
+      </option>
+    </select>
+
+    <div class="chat-messages" style="border:1px solid #ccc; height: 300px; overflow-y: auto; margin: 10px 0;">
+      <div v-for="(msg, index) in messages" :key="index">
+        <b>{{ msg.username }}:</b> {{ msg.text }}
       </div>
-      <form @submit.prevent="sendMessage" class="input-box">
-        <input v-model="newMessage" placeholder="Введите сообщение..." />
-        <button type="submit">Отправить</button>
-      </form>
     </div>
+
+    <input
+      v-model="messageText"
+      placeholder="Введите сообщение"
+      @keyup.enter="sendMessage"
+    />
+    <button @click="sendMessage" :disabled="!selectedUserId || !messageText">
+      Отправить
+    </button>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
+<script lang="ts" setup>
+import { ref, onMounted } from 'vue'
+import { useAuthStore } from '../stores/auth'
 
-const auth = useAuthStore()
-const router = useRouter()
+const authStore = useAuthStore()
+const messages = ref<{ from: string; username: string; text: string }[]>([])
+const selectedUserId = ref('')
+const messageText = ref('')
 
-const newMessage = ref('')
-const messages = ref<any[]>([])
-const messagesContainer = ref<HTMLElement | null>(null)
 let socket: WebSocket
 
-function scrollToBottom() {
-  nextTick(() => {
-    messagesContainer.value?.scrollTo({
-      top: messagesContainer.value.scrollHeight,
-      behavior: 'smooth',
-    })
-  })
-}
+onMounted(async () => {
+  await authStore.fetchUsers()
 
-onMounted(() => {
-  if (!auth.token) {
-    router.push('/login')
-    return
+  socket = new WebSocket('ws://localhost:5000') // замени на свой адрес
+
+  socket.onopen = () => {
+    socket.send(JSON.stringify({
+      type: 'auth',
+      userId: authStore.userId,
+    }))
   }
 
-  socket = new WebSocket('ws://localhost:5000')
-
-  socket.addEventListener('open', () => {
-    socket.send(JSON.stringify({ type: 'auth', userId: auth.userId }))
-  })
-
-  socket.addEventListener('message', (event) => {
+  socket.onmessage = (event) => {
     const data = JSON.parse(event.data)
-
     if (data.type === 'message') {
-      if (data.from !== auth.userId) {
-        messages.value.push({
-          from: data.from,
-          text: data.text,
-          timestamp: Date.now(),
-        })
-        scrollToBottom()
-      }
+      messages.value.push({
+        from: data.from,
+        username: data.username,
+        text: data.text,
+      })
     }
-  })
+  }
+
+  socket.onclose = () => {
+    console.log('Соединение закрыто')
+  }
 })
 
 function sendMessage() {
-  if (!newMessage.value.trim() || socket.readyState !== WebSocket.OPEN) return
+  if (!selectedUserId.value || !messageText.value) return
 
-  const message = {
+  socket.send(JSON.stringify({
     type: 'message',
-    to: '683a00d34e03b32604551089', // Временно жёстко
-    text: newMessage.value,
-  }
-
-  socket.send(JSON.stringify(message))
+    to: selectedUserId.value,
+    text: messageText.value,
+    username: authStore.username,
+  }))
 
   messages.value.push({
-    from: auth.userId,
-    text: newMessage.value,
-    timestamp: Date.now(),
+    from: authStore.userId,
+    username: authStore.username,
+    text: messageText.value,
   })
 
-  newMessage.value = ''
-  scrollToBottom()
+  messageText.value = ''
 }
 </script>
-
-<style scoped>
-.chat-page {
-  display: flex;
-  justify-content: center;
-  padding: 40px;
-}
-
-.chat-box {
-  width: 500px;
-  border: 1px solid #ccc;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  height: 600px;
-  overflow: hidden;
-}
-
-.messages {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  background: #f9f9f9;
-}
-
-.message {
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  max-width: 70%;
-}
-
-.sent {
-  align-self: flex-end;
-  background: #dcf8c6;
-}
-
-.received {
-  align-self: flex-start;
-  background: #e6e6e6;
-}
-
-.username {
-  font-weight: bold;
-  margin-right: 6px;
-}
-
-.input-box {
-  display: flex;
-  padding: 12px;
-  border-top: 1px solid #ccc;
-  background: white;
-}
-
-input {
-  flex: 1;
-  padding: 8px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  margin-right: 8px;
-}
-
-button {
-  padding: 8px 16px;
-  font-size: 16px;
-  border: none;
-  background: #409eff;
-  color: white;
-  border-radius: 8px;
-  cursor: pointer;
-}
-</style>
